@@ -1,11 +1,12 @@
 package com.example.peoplefind.domain.repository
 
-import com.example.peoplefind.domain.model.Resource
+import com.example.peoplefind.domain.model.ApiResult
 import com.example.peoplefind.domain.model.request.AuthByPhoneParam
 import com.example.peoplefind.domain.model.request.FetchUserDataParam
 import com.example.peoplefind.domain.model.request.RegisterAccountParam
 import com.example.peoplefind.domain.model.request.SaveLoginDataParam
 import com.example.peoplefind.domain.model.response.UserItem
+import kotlinx.coroutines.flow.Flow
 
 interface UserRepository {
     companion object {
@@ -14,9 +15,9 @@ interface UserRepository {
         const val USER_LOGGED_IN = "user_logged_in"
     }
 
-    suspend fun registerAccount(param: RegisterAccountParam): Resource<UserItem>
+    fun registerAccount(param: RegisterAccountParam): Flow<ApiResult<UserItem>>
 
-    suspend fun authByPhone(param: AuthByPhoneParam): Resource<UserItem>
+    fun authByPhone(param: AuthByPhoneParam): Flow<ApiResult<UserItem>>
 
     fun saveLoginData(param: SaveLoginDataParam)
 

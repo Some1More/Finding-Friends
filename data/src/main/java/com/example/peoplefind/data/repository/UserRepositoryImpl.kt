@@ -3,25 +3,24 @@ package com.example.peoplefind.data.repository
 import android.content.Context
 import android.util.Base64
 import com.example.peoplefind.data.api.ApiClient
-import com.example.peoplefind.domain.model.Resource
+import com.example.peoplefind.data.api.TokenManager
 import com.example.peoplefind.domain.model.request.AuthByPhoneParam
 import com.example.peoplefind.domain.model.request.FetchUserDataParam
 import com.example.peoplefind.domain.model.request.RegisterAccountParam
 import com.example.peoplefind.domain.model.request.SaveLoginDataParam
-import com.example.peoplefind.domain.model.response.UserItem
 import com.example.peoplefind.domain.repository.UserRepository
 import java.nio.charset.StandardCharsets
 
 class UserRepositoryImpl(apiClient: ApiClient, context: Context) : UserRepository, BaseRepository() {
-    private val apiService = apiClient.getApiService(this)
+    private val apiService = apiClient.getApiService(TokenManager(context))
     private val pref = context.getSharedPreferences("user_data", Context.MODE_PRIVATE)
 
-    override suspend fun registerAccount(param: RegisterAccountParam): Resource<UserItem> {
-        return safeApiCall { apiService.registerUser(request = param) }
+    override fun registerAccount(param: RegisterAccountParam) = apiRequestFlow {
+        apiService.registerUser(request = param)
     }
 
-    override suspend fun authByPhone(param: AuthByPhoneParam): Resource<UserItem> {
-        return safeApiCall { apiService.authUserByPhone(request = param) }
+    override fun authByPhone(param: AuthByPhoneParam) = apiRequestFlow {
+        apiService.authUserByPhone(request = param)
     }
 
     override fun saveLoginData(param: SaveLoginDataParam) {

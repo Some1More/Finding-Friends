@@ -1,16 +1,18 @@
 package com.example.peoplefind.data.api
 
-import com.example.peoplefind.domain.model.request.FetchUserDataParam
-import com.example.peoplefind.domain.repository.UserRepository
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.runBlocking
 import okhttp3.Interceptor
 import okhttp3.Response
 
-class AuthInterceptor(private val userRepository: UserRepository) : Interceptor {
+class AuthInterceptor(private val tokenManager: TokenManager) : Interceptor {
     override fun intercept(chain: Interceptor.Chain): Response {
-        val requestBuilder = chain.request().newBuilder()
-        userRepository.fetchUserData(FetchUserDataParam(UserRepository.USER_TOKEN))?.let {
-            requestBuilder.addHeader("Authorization", it)
+        val token = runBlocking {
+            tokenManager.getToken().first()
         }
+        val requestBuilder = chain.request().newBuilder()
+        requestBuilder.addHeader("Authorization", "Basic $token")
+
         return chain.proceed(requestBuilder.build())
     }
 }

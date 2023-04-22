@@ -1,45 +1,45 @@
 package com.example.peoplefind.data.repository
 
-import com.example.peoplefind.domain.model.Resource
-import com.example.peoplefind.domain.model.response.ErrorItem
-import com.squareup.moshi.Moshi
+import com.example.peoplefind.data.api.ErrorResponse
+import com.example.peoplefind.domain.model.ApiResult
+import com.google.gson.Gson
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
-import okhttp3.ResponseBody
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.withTimeoutOrNull
 import retrofit2.HttpException
 import retrofit2.Response
+import timber.log.Timber
 import java.io.IOException
 
 abstract class BaseRepository {
-    suspend fun <T> safeApiCall(apiToBeCalled: suspend () -> Response<T>): Resource<T> {
-        return withContext(Dispatchers.IO) {
+    fun <T> apiRequestFlow(call: suspend () -> Response<T>): Flow<ApiResult<T>> = flow {
+        emit(ApiResult.Loading)
+
+        withTimeoutOrNull(20000L) {
             try {
-                val response = apiToBeCalled()
+                val response = call()
 
                 if (response.isSuccessful) {
-                    Resource.Success(data = response.body()!!)
+                    response.body()?.let { data ->
+                        emit(ApiResult.Success(data))
+                    }
                 } else {
-                    val errorResponse = convertErrorBody(response.errorBody())
-                    Resource.Error(errorMessage = errorResponse?.failureMessage ?: "Что-то пошло не так")
+                    response.errorBody()?.let { error ->
+                        error.close()
+                        val parsedError: ErrorResponse = Gson().fromJson(error.charStream(), ErrorResponse::class.java)
+                        emit(ApiResult.Failure(parsedError.failureMessage, 400))
+                    }
                 }
             } catch (e: HttpException) {
-                Resource.Error(errorMessage = e.message ?: "Что-то пошло не так")
+                emit(ApiResult.Failure(errorMessage = e.message ?: "Server doesn't respond, try again later", e.code()))
             } catch (e: IOException) {
-                Resource.Error("Пожалуйста, проверьте подключение к сети")
+                emit(ApiResult.Failure(errorMessage = "Please check the network connection", 400))
             } catch (e: Exception) {
-                Resource.Error(errorMessage = "Что-то пошло не так")
+                Timber.e(e, e.message)
+                emit(ApiResult.Failure(errorMessage = "Something went wrong", 400))
             }
-        }
-    }
-
-    private fun convertErrorBody(errorBody: ResponseBody?): ErrorItem? {
-        return try {
-            errorBody?.source()?.let {
-                val moshiAdapter = Moshi.Builder().build().adapter(ErrorItem::class.java)
-                moshiAdapter.fromJson(it)
-            }
-        } catch (e: Exception) {
-            null
-        }
-    }
+        } ?: emit(ApiResult.Failure("Timeout! Please try again later.", 408))
+    }.flowOn(Dispatchers.IO)
 }
